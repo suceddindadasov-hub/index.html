@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yürüş — sərhəd oyunu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14100c;
+    --panel: #1d1611;
+    --panel-line: #352a20;
+    --wood-light: #d9b98a;
+    --wood-dark: #6b4a2f;
+    --wood-dark-edge: #503620;
+    --gold: #c7973f;
+    --gold-soft: rgba(199,151,63,0.35);
+    --ivory: #f3ead6;
+    --ivory-ring: #a9926b;
+    --onyx: #23201c;
+    --onyx-ring: #58493a;
+    --text: #ece2d0;
+    --text-dim: #a99a85;
+    --danger: #b5543a;
+    --win: #7fae6b;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, #241a11 0%, transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 32px 16px 60px;
+  }
+
+  header{
+    width:100%;
+    max-width: 980px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+
+  h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size: clamp(28px, 4vw, 40px);
+    letter-spacing: 0.2px;
+    margin:0;
+    color: var(--ivory);
+  }
+
+  h1 span{ color: var(--gold); font-style: italic; font-weight: 400; }
+
+  .tagline{
+    color: var(--text-dim);
+    font-size: 14px;
+    max-width: 360px;
+    line-height:1.5;
+    margin-top:6px;
+  }
+
+  .turn-pill{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: var(--panel);
+    border:1px solid var(--panel-line);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 14px;
+  }
+
+  .turn-dot{
+    width:14px; height:14px; border-radius:50%;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.25);
+  }
+  .turn-dot.white{ background: var(--ivory); }
+  .turn-dot.black{ background: var(--onyx); border:1px solid var(--onyx-ring); }
+
+  main{
+    width:100%;
+    max-width: 980px;
+    display:grid;
+    grid-template-columns: minmax(0, 620px) minmax(260px, 320px);
+    gap: 26px;
+    align-items:start;
+  }
+
+  @media (max-width: 800px){
+    main{ grid-template-columns: 1fr; }
+  }
+
+  /* ---------- BOARD ---------- */
+
+  .board-wrap{
+    background: linear-gradient(180deg,#2a1d12,#1a120b);
+    border: 1px solid #3a2a1a;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+  }
+
+  .board-grid-outer{
+    display:grid;
+    grid-template-columns: 22px 1fr;
+    grid-template-rows: 1fr 22px;
+    gap: 4px;
+  }
+
+  .files-row{
+    grid-column: 2;
+    grid-row: 2;
+    display:grid;
+    grid-template-columns: repeat(8, 1fr);
+  }
+  .files-row div, .ranks-col div{
+    display:flex; align-items:center; justify-content:center;
+    font-size: 11px; color: var(--text-dim); letter-spacing: 1px;
+  }
+  .ranks-col{
+    grid-column: 1;
+    grid-row: 1;
+    display:grid;
+    grid-template-rows: repeat(8, 1fr);
+  }
+
+  .board{
+    grid-column: 2;
+    grid-row: 1;
+    display:grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    aspect-ratio: 1/1;
+    border: 2px solid var(--wood-dark-edge);
+    border-radius: 4px;
+    overflow:hidden;
+  }
+
+  .sq{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    aspect-ratio: 1/1;
+    cursor:default;
+  }
+  .sq.light{ background: var(--wood-light); }
+  .sq.dark{ background: var(--wood-dark); }
+
+  .sq.target-white{ box-shadow: inset 0 0 0 3px rgba(199,151,63,0.55); }
+  .sq.target-black{ box-shadow: inset 0 0 0 3px rgba(199,151,63,0.55); }
+
+  .sq.selected{ box-shadow: inset 0 0 0 3px var(--gold); }
+
+  .sq.hint::after{
+    content:"";
+    width: 26%;
+    height: 26%;
+    border-radius: 50%;
+    background: var(--gold-soft);
+    border: 2px solid var(--gold);
+  }
+  .sq.hint2::after{
+    content:"";
+    width: 30%;
+    height: 30%;
+    border-radius: 50%;
+    background: transparent;
+    border: 2px dashed var(--gold);
+  }
+  .sq.hint-capture::after{
+    content:"";
+    width: 78%;
+    height: 78%;
+    border-radius: 8px;
+    background: transparent;
+    border: 3px solid var(--danger);
+  }
+
+  .piece{
+    width: 68%;
+    height: 68%;
+    border-radius: 50%;
+    cursor:pointer;
+    transition: transform .12s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .piece:hover{ transform: scale(1.06); }
+  .piece.white{
+    background: radial-gradient(circle at 34% 28%, #fffaf0, var(--ivory) 60%);
+    border: 2px solid var(--ivory-ring);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.35);
+  }
+  .piece.black{
+    background: radial-gradient(circle at 34% 28%, #3a332b, var(--onyx) 65%);
+    border: 2px solid var(--onyx-ring);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+  }
+  .piece.moved::after{
+    content:"";
+    width: 30%; height:30%;
+    border-radius:50%;
+    background: var(--gold);
+    opacity: 0.55;
+  }
+  .piece.movable{ outline: 2px solid transparent; }
+  .piece.dead-still{ opacity: 0.55; cursor:default; }
+  .piece.capture-ready{ box-shadow: 0 0 0 3px var(--danger), 0 3px 6px rgba(0,0,0,0.35); }
+  .piece.locked{ opacity: 0.4; cursor: not-allowed; }
+
+  /* ---------- SIDE PANEL ---------- */
+
+  .panel{
+    display:flex;
+    flex-direction:column;
+    gap: 16px;
+  }
+
+  .card{
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+
+  .card h2{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size: 16px;
+    margin: 0 0 12px;
+    color: var(--ivory);
+  }
+
+  .dash-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size: 13px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--panel-line);
+    color: var(--text-dim);
+  }
+  .dash-row:last-child{ border-bottom:none; }
+  .dash-row b{ color: var(--text); font-weight:600; }
+
+  .badge{
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border:1px solid var(--panel-line);
+  }
+  .badge.ready{ color: var(--win); border-color: rgba(127,174,107,0.4); }
+  .badge.used{ color: var(--text-dim); }
+
+  .log{
+    max-height: 220px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column-reverse;
+    gap:6px;
+    font-size: 13px;
+  }
+  .log div{
+    display:flex;
+    gap:8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+  }
+  .log div span.n{ color: var(--text-dim); width:18px; flex-shrink:0; }
+
+  button{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 13px;
+    border-radius: 8px;
+    border: 1px solid var(--panel-line);
+    background: transparent;
+    color: var(--text);
+    padding: 10px 14px;
+    cursor:pointer;
+    width:100%;
+    transition: border-color .15s, color .15s;
+  }
+  button:hover{ border-color: var(--gold); color: var(--gold); }
+  button.primary{
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #1a1206;
+  }
+  button.primary:hover{ opacity:0.9; color:#1a1206; }
+
+  .rules-body{
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-dim);
+    display:none;
+  }
+  .rules-body.open{ display:block; }
+  .rules-body ul{ padding-left: 18px; margin: 8px 0; }
+  .rules-body li{ margin-bottom: 6px; }
+
+  .status-msg{
+    font-size: 13px;
+    color: var(--text-dim);
+    min-height: 18px;
+  }
+  .status-msg.warn{ color: var(--danger); }
+
+  /* ---------- WIN OVERLAY ---------- */
+
+  .overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(10,7,5,0.72);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index: 50;
+  }
+  .overlay.show{ display:flex; }
+  .overlay-card{
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    border-radius: 14px;
+    padding: 34px 40px;
+    text-align:center;
+    max-width: 380px;
+  }
+  .overlay-card h3{
+    font-family:'Fraunces', serif;
+    font-size: 26px;
+    color: var(--gold);
+    margin: 0 0 10px;
+  }
+  .overlay-card p{ color: var(--text-dim); font-size: 14px; margin-bottom: 20px; }
+
+  footer{
+    margin-top: 30px;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align:center;
+    max-width: 620px;
+  }
+
+  /* ---------- MODE TABS ---------- */
+
+  .mode-tabs{
+    display:flex;
+    gap:8px;
+    width:100%;
+    max-width: 980px;
+    margin-bottom: 16px;
+  }
+  .mode-tab{
+    flex:1;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    color: var(--text-dim);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight:600;
+    cursor:pointer;
+    text-align:center;
+  }
+  .mode-tab.active{
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(199,151,63,0.08);
+  }
+
+  /* ---------- ONLINE PANEL ---------- */
+
+  .online-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .online-row input{
+    flex:1;
+    min-width:0;
+    background: rgba(255,255,255,0.03);
+    border:1px solid var(--panel-line);
+    border-radius:8px;
+    color: var(--text);
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 12px;
+    width: 0;
+  }
+  .online-row button{ width:auto; white-space:nowrap; }
+
+  .room-code-display{
+    font-family:'Fraunces', serif;
+    font-size: 28px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    text-align:center;
+    padding: 10px 0 4px;
+  }
+  .conn-badge{
+    font-size:11px;
+    padding:3px 9px;
+    border-radius:999px;
+    border:1px solid var(--panel-line);
+  }
+  .conn-badge.wait{ color: var(--gold); border-color: var(--gold-soft); }
+  .conn-badge.live{ color: var(--win); border-color: rgba(127,174,107,0.4); }
+  .conn-badge.off{ color: var(--text-dim); }
+
+  .fb-warning{
+    font-size:12px;
+    line-height:1.5;
+    color: var(--danger);
+    background: rgba(181,84,58,0.08);
+    border:1px solid rgba(181,84,58,0.3);
+    border-radius:8px;
+    padding:10px 12px;
+  }
+
+  #onlinePanel{ display:none; }
+  #onlinePanel.show{ display:flex; flex-direction:column; gap:16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Yürüş <span>— sərhəddi keç</span></h1>
+    <div class="tagline">Şahmat taxtasında oynanan, irəli və sağa gedən, hər tərəfdən yeyən orijinal strategiya oyunu.</div>
+  </div>
+  <div class="turn-pill">
+    <div id="turnDot" class="turn-dot white"></div>
+    <span id="turnText">Növbə: Ağ</span>
+  </div>
+</header>
+
+<div class="mode-tabs">
+  <div class="mode-tab active" id="tabLocal">Lokal (bir cihazda)</div>
+  <div class="mode-tab" id="tabOnline">Onlayn (otaq ilə)</div>
+</div>
+
+<main>
+  <div class="board-wrap">
+    <div class="board-grid-outer">
+      <div class="ranks-col" id="ranksCol"></div>
+      <div class="board" id="board"></div>
+      <div class="files-row" id="filesRow"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="card" id="onlinePanel">
+      <h2>Onlayn otaq</h2>
+      <div id="fbWarning" class="fb-warning" style="display:none;">
+        Firebase konfiqurasiyası daxil edilməyib. Kodun başındakı <code>firebaseConfig</code> obyektinə öz Firebase layihənizin açarlarını yazın ki, onlayn rejim işləsin.
+      </div>
+
+      <div id="roomSetup">
+        <div class="online-row">
+          <input id="joinCodeInput" maxlength="6" placeholder="OTAQ KODU">
+          <button id="joinRoomBtn">Qoşul</button>
+        </div>
+        <button id="createRoomBtn">+ Yeni otaq yarat</button>
+      </div>
+
+      <div id="roomActive" style="display:none;">
+        <div class="room-code-display" id="roomCodeText">——</div>
+        <div class="dash-row"><span>Bağlantı</span><span class="conn-badge wait" id="connBadge">gözlənilir</span></div>
+        <div class="dash-row"><span>Sizin rəng</span><b id="myColorText">—</b></div>
+        <div class="dash-row"><span>Otaq linki</span><button id="copyLinkBtn" style="width:auto;padding:4px 10px;font-size:11px;">Kopyala</button></div>
+        <button id="leaveRoomBtn" style="margin-top:10px;">Otaqdan çıx</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Vəziyyət</h2>
+      <div class="dash-row"><span>Ağ — 2 addımlıq haqq</span><span id="wDouble" class="badge ready">var</span></div>
+      <div class="dash-row"><span>Qara — 2 addımlıq haqq</span><span id="bDouble" class="badge ready">var</span></div>
+      <div class="dash-row"><span>Ağ daşlar</span><b id="wCount">9</b></div>
+      <div class="dash-row"><span>Qara daşlar</span><b id="bCount">9</b></div>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Gedişlər</h2>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="card">
+      <button class="primary" id="resetBtn">Yenidən başla</button>
+    </div>
+
+    <div class="card">
+      <h2 style="cursor:pointer" id="rulesToggle">Qaydalar ▾</h2>
+      <div class="rules-body" id="rulesBody">
+        <ul>
+          <li>Ağ daşlar a1,b1,c1,a2,b2,c2,a3,b3,c3-də başlayır, hədəfi f8, g8 və ya h8-ə çatmaqdır.</li>
+          <li>Qara daşlar f6,g6,h6,f7,g7,h7,f8,g8,h8-də başlayır, hədəfi a1, b1 və ya c1-ə çatmaqdır.</li>
+          <li>Adi gediş: yalnız irəli və ya öz sağınıza bir xana (çarpaz yox).</li>
+          <li>Yemə: bitişikdəki — irəli, sağ, sol və ya arxa — istənilən rəqib daşı öz xanasına keçərək yeyə bilərsiniz.</li>
+          <li>Yemə mütləqdir: əgər növbədəki tərəfin istənilən daşı ilə yemə mümkündürsə, həmin növbədə mütləq yeyən gediş edilməlidir — adi gediş edilə bilməz.</li>
+          <li>Hər komandanın, hələ heç oynamamış bir daşını ilk gedişində 2 xana oynatmaq haqqı var — oyun boyu cəmi bir dəfə.</li>
+          <li>Rəqib xanaya çatan, rəqibin bütün daşları yeyilən və ya gedişi qalmayan tərəf uduzur/qalib gəlir.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  "Lokal" nişanı bir cihazda növbəli oynamaq üçündür (pass-and-play). "Onlayn" nişanı isə Firebase Realtime Database vasitəsilə iki fərqli brauzer/cihaz arasında canlı sinxronizasiya edir — işə düşməsi üçün kodun başındakı <code>firebaseConfig</code> hissəsinə öz Firebase layihənizin açarlarını yazmalısınız. Fayl statik HTML/CSS/JS-dir — istənilən statik hosting (GitHub Pages, Netlify, Vercel) üzərində birbaşa yerləşdirə bilərsiniz.
+</footer>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <h3 id="overlayTitle">Ağ qazandı!</h3>
+    <p id="overlaySub">Hədəf xanaya çatdı.</p>
+    <button class="primary" id="overlayReset">Yeni oyun</button>
+  </div>
+</div>
+
+<!--
+  ONLAYN MULTİPLAYER ÜÇÜN: öz Firebase layihənizin konfiqurasiyasını
+  aşağıdakı obyektə yazın (Firebase Console → Project settings → General
+  → "Your apps" → SDK setup and configuration). Realtime Database
+  yaratmağı unutmayın (Build → Realtime Database → Create Database).
+-->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDGhPeYQ0wK9jt9_FQAMkSNsgjMpnlC8xc",
+    authDomain: "recth2009.firebaseapp.com",
+    databaseURL: "https://BURAYA_YAZIN-default-rtdb.firebaseio.com",
+    projectId: "recth2009",
+    storageBucket: "recth2009.appspot.com",
+    messagingSenderId: "179358559371",
+    appId: "1:179358559371:web:3a489ac0f46f1b332f788e"
+  };
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+
+<script>
+(function(){
+  const FILES = ['a','b','c','d','e','f','g','h'];
+  const WHITE_TARGET = [[7,5],[7,6],[7,7]]; // f8 g8 h8
+  const BLACK_TARGET = [[0,0],[0,1],[0,2]]; // a1 b1 c1
+
+  let board, turn, selected, legalMoves, doubleMoveUsed, moveHistory, gameOver;
+  let lastWinner = null, lastReason = '';
+
+  // ---- Onlayn multiplayer vəziyyəti ----
+  let onlineMode = false;      // true = Firebase-lə sinxron otaq rejimi
+  let firebaseReady = false;   // firebaseConfig doldurulub və init uğurludur
+  let roomCode = null;
+  let myColor = null;          // 'white' | 'black' — bu brauzerin rolu
+  let roomRef = null;          // firebase.database().ref('rooms/CODE')
+  let clientId = null;         // bu brauzeri tanıtmaq üçün sabit id
+
+  function coordName(r,c){ return FILES[c] + (r+1); }
+
+  function freshBoard(){
+    const b = Array.from({length:8}, () => Array(8).fill(null));
+    // white block a1..c3
+    for(let r=0;r<3;r++){
+      for(let c=0;c<3;c++){
+        b[r][c] = { color:'white', hasMoved:false };
+      }
+    }
+    // black block f6..h8
+    for(let r=5;r<8;r++){
+      for(let c=5;c<8;c++){
+        b[r][c] = { color:'black', hasMoved:false };
+      }
+    }
+    return b;
+  }
+
+  function initGame(){
+    board = freshBoard();
+    turn = 'white';
+    selected = null;
+    legalMoves = [];
+    doubleMoveUsed = { white:false, black:false };
+    moveHistory = [];
+    gameOver = false;
+    document.getElementById('overlay').classList.remove('show');
+    updateForcedCaptureStatus();
+    render();
+  }
+
+  function inBounds(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+
+  function dirsFor(color){
+    return color === 'white'
+      ? { fwd:{dr:1,dc:0}, right:{dr:0,dc:1} }
+      : { fwd:{dr:-1,dc:0}, right:{dr:0,dc:-1} };
+  }
+
+  function getMoves(r,c){
+    const piece = board[r][c];
+    if(!piece) return [];
+    const d = dirsFor(piece.color);
+    const moves = [];
+
+    // single-step forward / right
+    [d.fwd, d.right].forEach(dir=>{
+      const nr=r+dir.dr, nc=c+dir.dc;
+      if(inBounds(nr,nc) && !board[nr][nc]){
+        moves.push({row:nr, col:nc, type:'move'});
+      }
+    });
+
+    // double-step (once per team, only on a piece's first-ever move)
+    if(!piece.hasMoved && !doubleMoveUsed[piece.color]){
+      [d.fwd, d.right].forEach(dir=>{
+        const midR=r+dir.dr, midC=c+dir.dc;
+        const farR=r+2*dir.dr, farC=c+2*dir.dc;
+        if(inBounds(farR,farC) && !board[midR][midC] && !board[farR][farC]){
+          moves.push({row:farR, col:farC, type:'move2'});
+        }
+      });
+    }
+
+    // captures: any of the 4 orthogonal neighbours
+    [{dr:1,dc:0},{dr:-1,dc:0},{dr:0,dc:1},{dr:0,dc:-1}].forEach(dir=>{
+      const nr=r+dir.dr, nc=c+dir.dc;
+      if(inBounds(nr,nc) && board[nr][nc] && board[nr][nc].color !== piece.color){
+        moves.push({row:nr, col:nc, type:'capture'});
+      }
+    });
+
+    return moves;
+  }
+
+  function teamHasCapture(color){
+    for(let r=0;r<8;r++){
+      for(let c=0;c<8;c++){
+        const p = board[r][c];
+        if(p && p.color===color && getMoves(r,c).some(m=>m.type==='capture')) return true;
+      }
+    }
+    return false;
+  }
+
+  function teamHasAnyMove(color){
+    for(let r=0;r<8;r++){
+      for(let c=0;c<8;c++){
+        const p = board[r][c];
+        if(p && p.color===color && getMoves(r,c).length>0) return true;
+      }
+    }
+    return false;
+  }
+
+  function teamPieceCount(color){
+    let n=0;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++) if(board[r][c] && board[r][c].color===color) n++;
+    return n;
+  }
+
+  function isTarget(color, r, c){
+    const list = color==='white' ? WHITE_TARGET : BLACK_TARGET;
+    return list.some(([tr,tc])=> tr===r && tc===c);
+  }
+
+  function opponent(color){ return color==='white' ? 'black' : 'white'; }
+
+  function makeMove(from, to, type){
+    const piece = board[from.row][from.col];
+    const capturedName = board[to.row][to.col] ? coordName(to.row, to.col) : null;
+
+    board[to.row][to.col] = piece;
+    board[from.row][from.col] = null;
+    piece.hasMoved = true;
+    if(type==='move2') doubleMoveUsed[piece.color] = true;
+
+    let note = (piece.color==='white' ? 'Ağ' : 'Qara') + ': ' +
+      coordName(from.row, from.col) + (capturedName ? 'x' : '-') + coordName(to.row, to.col) +
+      (type==='move2' ? ' (2 addım)' : '');
+    moveHistory.push(note);
+
+    // win by reaching target
+    if(isTarget(piece.color, to.row, to.col)){
+      endGame(piece.color, (piece.color==='white'?'Ağ':'Qara') + ' hədəf xanaya çatdı.');
+      return;
+    }
+
+    // win by wiping out opponent
+    const oppColor = opponent(piece.color);
+    if(teamPieceCount(oppColor) === 0){
+      endGame(piece.color, (oppColor==='white'?'Ağın':'Qaranın') + ' bütün daşları yeyildi.');
+      return;
+    }
+
+    // switch turn
+    turn = oppColor;
+    selected = null;
+    legalMoves = [];
+
+    // stalemate check for the side to move
+    if(!teamHasAnyMove(turn)){
+      endGame(opponent(turn), (turn==='white'?'Ağın':'Qaranın') + ' heç bir gedişi qalmadı.');
+      return;
+    }
+
+    updateForcedCaptureStatus();
+    render();
+    if(onlineMode) syncToFirebase();
+  }
+
+  function updateForcedCaptureStatus(){
+    if(gameOver) return;
+    if(teamHasCapture(turn)){
+      setStatus((turn==='white'?'Ağ':'Qara') + ' üçün yemə mümkündür — bu növbədə mütləq yeyilməlidir.');
+    } else {
+      setStatus('');
+    }
+  }
+
+  function endGame(winner, reason){
+    gameOver = true;
+    lastWinner = winner;
+    lastReason = reason;
+    selected = null;
+    legalMoves = [];
+    render();
+    document.getElementById('overlayTitle').textContent = (winner==='white' ? 'Ağ qazandı!' : 'Qara qazandı!');
+    document.getElementById('overlaySub').textContent = reason;
+    document.getElementById('overlay').classList.add('show');
+    if(onlineMode) syncToFirebase();
+  }
+
+  function setStatus(msg, warn){
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg || '';
+    el.className = 'status-msg' + (warn ? ' warn' : '');
+  }
+
+  // =========================================================
+  //  ONLAYN MULTİPLAYER (Firebase Realtime Database)
+  // =========================================================
+
+  function initFirebase(){
+    const notConfigured = !firebaseConfig || firebaseConfig.apiKey === 'BURAYA_YAZIN';
+    if(notConfigured){
+      document.getElementById('fbWarning').style.display = 'block';
+      firebaseReady = false;
+      return;
+    }
+    try{
+      firebase.initializeApp(firebaseConfig);
+      firebaseReady = true;
+    }catch(e){
+      console.error('Firebase init xətası:', e);
+      document.getElementById('fbWarning').style.display = 'block';
+      document.getElementById('fbWarning').textContent = 'Firebase qoşulmadı: ' + e.message;
+      firebaseReady = false;
+    }
+  }
+
+  function getClientId(){
+    let id = localStorage.getItem('yurush_client_id');
+    if(!id){
+      id = 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('yurush_client_id', id);
+    }
+    return id;
+  }
+
+  function randomRoomCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ambiqu simvollar çıxarılıb
+    let code = '';
+    for(let i=0;i<5;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    return code;
+  }
+
+  // board -> Firebase-ə yazıla bilən sadə obyekt (boş xanalar saxlanmır)
+  function boardToObject(b){
+    const obj = {};
+    for(let r=0;r<8;r++){
+      for(let c=0;c<8;c++){
+        if(b[r][c]) obj[r+'_'+c] = { color: b[r][c].color, hasMoved: !!b[r][c].hasMoved };
+      }
+    }
+    return obj;
+  }
+
+  function objectToBoard(obj){
+    const b = Array.from({length:8}, () => Array(8).fill(null));
+    if(obj){
+      Object.keys(obj).forEach(key=>{
+        const [r,c] = key.split('_').map(Number);
+        b[r][c] = { color: obj[key].color, hasMoved: !!obj[key].hasMoved };
+      });
+    }
+    return b;
+  }
+
+  function serializeState(){
+    return {
+      board: boardToObject(board),
+      turn: turn,
+      doubleMoveUsed: doubleMoveUsed,
+      moveHistory: moveHistory,
+      gameOver: gameOver,
+      winner: gameOver ? lastWinner : null,
+      reason: gameOver ? lastReason : ''
+    };
+  }
+
+  function syncToFirebase(){
+    if(!roomRef) return;
+    roomRef.child('state').set(serializeState());
+  }
+
+  function roomActiveBothJoined(){
+    const el = document.getElementById('connBadge');
+    return el && el.dataset.both === '1';
+  }
+
+  function applyRemoteRoom(data){
+    if(!data) return;
+    const players = data.players || {};
+    const bothJoined = !!(players.white && players.black);
+
+    const connBadge = document.getElementById('connBadge');
+    connBadge.dataset.both = bothJoined ? '1' : '0';
+    if(bothJoined){
+      connBadge.textContent = 'oyun gedir';
+      connBadge.className = 'conn-badge live';
+    } else {
+      connBadge.textContent = 'rəqib gözlənilir';
+      connBadge.className = 'conn-badge wait';
+    }
+
+    if(data.state){
+      board = objectToBoard(data.state.board);
+      turn = data.state.turn || 'white';
+      doubleMoveUsed = data.state.doubleMoveUsed || {white:false, black:false};
+      moveHistory = data.state.moveHistory || [];
+      gameOver = !!data.state.gameOver;
+      lastWinner = data.state.winner || null;
+      lastReason = data.state.reason || '';
+      selected = null;
+      legalMoves = [];
+
+      const overlay = document.getElementById('overlay');
+      if(gameOver && lastWinner){
+        document.getElementById('overlayTitle').textContent = (lastWinner==='white' ? 'Ağ qazandı!' : 'Qara qazandı!');
+        document.getElementById('overlaySub').textContent = lastReason;
+        overlay.classList.add('show');
+      } else {
+        overlay.classList.remove('show');
+      }
+
+      updateForcedCaptureStatus();
+      if(!bothJoined && !gameOver) setStatus('Rəqibin otağa qoşulmasını gözləyirik…');
+      render();
+    }
+  }
+
+  function attachRoomListener(){
+    if(!roomRef) return;
+    roomRef.on('value', snap => applyRemoteRoom(snap.val()));
+  }
+
+  function createRoom(){
+    if(!firebaseReady){ setStatus('Firebase konfiqurasiyası daxil edilməyib.', true); return; }
+    const db = firebase.database();
+    const code = randomRoomCode();
+    const ref = db.ref('rooms/' + code);
+
+    board = freshBoard();
+    turn = 'white';
+    doubleMoveUsed = { white:false, black:false };
+    moveHistory = [];
+    gameOver = false;
+    lastWinner = null; lastReason = '';
+
+    ref.set({
+      players: { white: clientId },
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      state: serializeState()
+    }).then(()=>{
+      onlineMode = true;
+      roomCode = code;
+      myColor = 'white';
+      roomRef = ref;
+      attachRoomListener();
+      showRoomActive();
+    }).catch(e=>{
+      setStatus('Otaq yaradıla bilmədi: ' + e.message, true);
+    });
+  }
+
+  function joinRoom(code){
+    if(!firebaseReady){ setStatus('Firebase konfiqurasiyası daxil edilməyib.', true); return; }
+    code = (code||'').trim().toUpperCase();
+    if(!code){ setStatus('Otaq kodunu daxil edin.', true); return; }
+
+    const db = firebase.database();
+    const ref = db.ref('rooms/' + code);
+
+    ref.once('value').then(snap=>{
+      const data = snap.val();
+      if(!data){ setStatus('Bu kodda otaq tapılmadı.', true); return; }
+
+      const players = data.players || {};
+      let role = null;
+
+      if(players.white === clientId) role = 'white';
+      else if(players.black === clientId) role = 'black';
+      else if(!players.black){ role = 'black'; ref.child('players/black').set(clientId); }
+      else if(!players.white){ role = 'white'; ref.child('players/white').set(clientId); }
+      else { setStatus('Otaq artıq doludur.', true); return; }
+
+      onlineMode = true;
+      roomCode = code;
+      myColor = role;
+      roomRef = ref;
+      attachRoomListener();
+      showRoomActive();
+    }).catch(e=>{
+      setStatus('Otağa qoşulmaq mümkün olmadı: ' + e.message, true);
+    });
+  }
+
+  function leaveRoom(){
+    if(roomRef) roomRef.off();
+    onlineMode = false;
+    roomCode = null;
+    myColor = null;
+    roomRef = null;
+    document.getElementById('roomActive').style.display = 'none';
+    document.getElementById('roomSetup').style.display = 'block';
+    initGame();
+  }
+
+  function showRoomActive(){
+    document.getElementById('roomSetup').style.display = 'none';
+    document.getElementById('roomActive').style.display = 'block';
+    document.getElementById('roomCodeText').textContent = roomCode;
+    document.getElementById('myColorText').textContent = (myColor === 'white' ? 'Ağ' : 'Qara');
+  }
+
+  function shareLink(){
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', roomCode);
+    return url.toString();
+  }
+
+  function onSquareClick(r,c){
+    if(gameOver) return;
+    if(onlineMode){
+      if(!roomCode || !myColor){ setStatus('Əvvəlcə otaq yaradın və ya otağa qoşulun.', true); return; }
+      if(!roomActiveBothJoined()){ setStatus('Rəqib otağa qoşulana qədər gözləyin.', true); return; }
+      if(turn !== myColor){ setStatus('Sıra rəqibdədir — gözləyin.'); return; }
+    }
+    const piece = board[r][c];
+
+    // clicking an already-highlighted destination
+    const target = legalMoves.find(m => m.row===r && m.col===c);
+    if(selected && target){
+      makeMove(selected, {row:r,col:c}, target.type);
+      return;
+    }
+
+    // selecting / reselecting own piece
+    if(piece && piece.color === turn){
+      const allMoves = getMoves(r,c);
+      const mustCapture = teamHasCapture(turn);
+
+      if(mustCapture){
+        const captures = allMoves.filter(m => m.type === 'capture');
+        if(captures.length === 0){
+          selected = null;
+          legalMoves = [];
+          setStatus('Yemə mümkün olduğu üçün mütləq yeməlisiniz — yeyə bilən bir daş seçin.', true);
+          render();
+          return;
+        }
+        selected = {row:r, col:c};
+        legalMoves = captures;
+        setStatus((turn==='white'?'Ağ':'Qara') + ' üçün yemə mütləqdir.');
+        render();
+        return;
+      }
+
+      selected = {row:r, col:c};
+      legalMoves = allMoves;
+      if(legalMoves.length===0) setStatus('Bu daşın heç bir gedişi yoxdur.', true);
+      else setStatus('');
+      render();
+      return;
+    }
+
+    // clicking empty / opponent square with nothing valid: deselect
+    selected = null;
+    legalMoves = [];
+    render();
+  }
+
+  function render(){
+    const boardEl = document.getElementById('board');
+    boardEl.innerHTML = '';
+    const forceCapture = !gameOver && teamHasCapture(turn);
+
+    for(let r=7; r>=0; r--){
+      for(let c=0; c<8; c++){
+        const sq = document.createElement('div');
+        const light = (r+c) % 2 === 1;
+        sq.className = 'sq ' + (light ? 'light' : 'dark');
+
+        if(isTarget('white', r, c)) sq.classList.add('target-white');
+        if(isTarget('black', r, c)) sq.classList.add('target-black');
+
+        if(selected && selected.row===r && selected.col===c) sq.classList.add('selected');
+
+        const hint = legalMoves.find(m => m.row===r && m.col===c);
+        if(hint){
+          if(hint.type==='move') sq.classList.add('hint');
+          else if(hint.type==='move2') sq.classList.add('hint2');
+          else if(hint.type==='capture') sq.classList.add('hint-capture');
+        }
+
+        const piece = board[r][c];
+        if(piece){
+          const p = document.createElement('div');
+          p.className = 'piece ' + piece.color + (piece.hasMoved ? ' moved' : '');
+          if(piece.color !== turn || gameOver) p.classList.add('dead-still');
+          if(!gameOver && piece.color === turn && forceCapture){
+            const canCapture = getMoves(r,c).some(m => m.type === 'capture');
+            p.classList.add(canCapture ? 'capture-ready' : 'locked');
+          }
+          p.title = coordName(r,c);
+          p.addEventListener('click', (e)=>{ e.stopPropagation(); onSquareClick(r,c); });
+          sq.appendChild(p);
+        }
+
+        sq.addEventListener('click', ()=> onSquareClick(r,c));
+        boardEl.appendChild(sq);
+      }
+    }
+
+    // turn indicator
+    document.getElementById('turnDot').className = 'turn-dot ' + turn;
+    document.getElementById('turnText').textContent = 'Növbə: ' + (turn==='white' ? 'Ağ' : 'Qara');
+
+    // dashboard
+    document.getElementById('wDouble').textContent = doubleMoveUsed.white ? 'istifadə edilib' : 'var';
+    document.getElementById('wDouble').className = 'badge ' + (doubleMoveUsed.white ? 'used' : 'ready');
+    document.getElementById('bDouble').textContent = doubleMoveUsed.black ? 'istifadə edilib' : 'var';
+    document.getElementById('bDouble').className = 'badge ' + (doubleMoveUsed.black ? 'used' : 'ready');
+    document.getElementById('wCount').textContent = teamPieceCount('white');
+    document.getElementById('bCount').textContent = teamPieceCount('black');
+
+    // log
+    const logEl = document.getElementById('log');
+    logEl.innerHTML = '';
+    moveHistory.forEach((m, i)=>{
+      const row = document.createElement('div');
+      row.innerHTML = '<span class="n">' + (i+1) + '.</span><span>' + m + '</span>';
+      logEl.appendChild(row);
+    });
+  }
+
+  function buildCoordLabels(){
+    const files = document.getElementById('filesRow');
+    FILES.forEach(f=>{
+      const d = document.createElement('div');
+      d.textContent = f;
+      files.appendChild(d);
+    });
+    const ranks = document.getElementById('ranksCol');
+    for(let r=8; r>=1; r--){
+      const d = document.createElement('div');
+      d.textContent = r;
+      ranks.appendChild(d);
+    }
+  }
+
+  function resetCurrentGame(){
+    if(onlineMode && roomRef){
+      board = freshBoard();
+      turn = 'white';
+      doubleMoveUsed = { white:false, black:false };
+      moveHistory = [];
+      gameOver = false;
+      lastWinner = null; lastReason = '';
+      syncToFirebase();
+    } else {
+      initGame();
+    }
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', resetCurrentGame);
+  document.getElementById('overlayReset').addEventListener('click', resetCurrentGame);
+  document.getElementById('rulesToggle').addEventListener('click', ()=>{
+    const body = document.getElementById('rulesBody');
+    body.classList.toggle('open');
+    document.getElementById('rulesToggle').textContent = 'Qaydalar ' + (body.classList.contains('open') ? '▴' : '▾');
+  });
+
+  // ---- mode tabs ----
+  document.getElementById('tabLocal').addEventListener('click', ()=>{
+    if(roomRef) leaveRoom();
+    document.getElementById('tabLocal').classList.add('active');
+    document.getElementById('tabOnline').classList.remove('active');
+    document.getElementById('onlinePanel').classList.remove('show');
+    initGame();
+  });
+  document.getElementById('tabOnline').addEventListener('click', ()=>{
+    document.getElementById('tabOnline').classList.add('active');
+    document.getElementById('tabLocal').classList.remove('active');
+    document.getElementById('onlinePanel').classList.add('show');
+  });
+
+  // ---- room controls ----
+  document.getElementById('createRoomBtn').addEventListener('click', createRoom);
+  document.getElementById('joinRoomBtn').addEventListener('click', ()=>{
+    joinRoom(document.getElementById('joinCodeInput').value);
+  });
+  document.getElementById('joinCodeInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') joinRoom(document.getElementById('joinCodeInput').value);
+  });
+  document.getElementById('leaveRoomBtn').addEventListener('click', leaveRoom);
+  document.getElementById('copyLinkBtn').addEventListener('click', ()=>{
+    navigator.clipboard.writeText(shareLink()).then(()=>{
+      const btn = document.getElementById('copyLinkBtn');
+      const old = btn.textContent;
+      btn.textContent = 'Kopyalandı!';
+      setTimeout(()=> btn.textContent = old, 1500);
+    });
+  });
+
+  buildCoordLabels();
+  clientId = getClientId();
+  initFirebase();
+  initGame();
+
+  // URL-də ?room=KOD varsa, avtomatik olaraq Onlayn nişanını aç və kodu doldur
+  const urlRoom = new URLSearchParams(window.location.search).get('room');
+  if(urlRoom){
+    document.getElementById('tabOnline').click();
+    document.getElementById('joinCodeInput').value = urlRoom.toUpperCase();
+    if(firebaseReady) joinRoom(urlRoom);
+  }
+})();
+</script>
+
+</body>
+</html>
